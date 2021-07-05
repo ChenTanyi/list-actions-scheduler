@@ -77,7 +77,7 @@ def list_actions_files_of_repo(
     logging.debug(f'Start list actions files of {repo}, {branch}')
 
     commits = request_github_api(f'/repos/{repo}/commits/{branch}', sess)
-    logging.debug(f'Get Commit: {commits}')
+    logging.debug(f'Get Commit: {commits["commit"]}')
     root_tree = request_github_api(commits['commit']['tree']['url'], sess)
     logging.debug(f'Get Root Tree: {root_tree}')
 
@@ -87,7 +87,7 @@ def list_actions_files_of_repo(
             logging.debug(f'Get Github Tree: {github_tree}')
 
             for workflows_folder in github_tree['tree']:
-                if workflows_folder['path'] == '.github/workflows':
+                if workflows_folder['path'] == 'workflows':
                     workflows_tree = request_github_api(workflows_folder['url'],
                                                         sess)
                     logging.debug(f'Get Wrokflows Tree: {workflows_tree}')
@@ -112,11 +112,11 @@ def check_schedule_for_yaml(blob: dict, repo: str):
             logging.error(f'Unknown encoding for blob: {blob["encoding"]}')
             return
 
-        content = yaml.safe_load(content_str)
+        content = yaml.load(content_str, Loader = yaml.BaseLoader)
         if content.get('on', dict()).get('schedule', ''):
             logging.info(f'Got schedule action of {repo}')
     except:
-        logging.exception('[Fatal] Dump action yaml failed')
+        logging.exception(f'[Fatal] Dump action yaml failed of {repo}')
 
 
 def arg_parse(args) -> argparse.Namespace:
@@ -137,7 +137,7 @@ def arg_parse(args) -> argparse.Namespace:
 def main():
     args = arg_parse(sys.argv[1:])
     if args.debug:
-        logging.basicConfig(level = logging.DEBUG)
+        logging.getLogger().setLevel(logging.DEBUG)
 
     with requests.session() as sess:
         if args.proxy:
@@ -150,17 +150,29 @@ def main():
             'Authorization'] = f'Basic {base64.b64encode(token).decode()}'
 
         for repo in list_all_user_repo(sess):
-            for blob in list_actions_files_of_repo(repo['full_name'],
-                                                   repo['default_branch'],
-                                                   sess):
-                check_schedule_for_yaml(blob, repo['full_name'])
+            try:
+                for blob in list_actions_files_of_repo(
+                        repo['full_name'],
+                        repo['default_branch'],
+                        sess,
+                ):
+                    check_schedule_for_yaml(blob, repo['full_name'])
+            except:
+                logging.exception('Unable to list blob of repo: {0}'.format(
+                    repo['full_name']))
 
         if args.org:
             for repo in list_all_repos_with_org_regex(args.org, sess):
-                for blob in list_actions_files_of_repo(repo['full_name'],
-                                                       repo['default_branch'],
-                                                       sess):
-                    check_schedule_for_yaml(blob, repo['full_name'])
+                try:
+                    for blob in list_actions_files_of_repo(
+                            repo['full_name'],
+                            repo['default_branch'],
+                            sess,
+                    ):
+                        check_schedule_for_yaml(blob, repo['full_name'])
+                except:
+                    logging.exception('Unable to list blob of repo: {0}'.format(
+                        repo['full_name']))
 
 
 if __name__ == "__main__":
