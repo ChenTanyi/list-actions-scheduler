@@ -113,7 +113,7 @@ def check_schedule_for_yaml(blob: dict, repo: str):
             return
 
         content = yaml.load(content_str, Loader = yaml.BaseLoader)
-        if content.get('on', dict()).get('schedule', ''):
+        if 'schedule' in content.get('on', dict()):
             logging.info(f'Got schedule action of {repo}')
     except:
         logging.exception(f'[Fatal] Dump action yaml failed of {repo}')
