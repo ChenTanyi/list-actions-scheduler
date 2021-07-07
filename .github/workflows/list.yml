@@ -1,0 +1,16 @@
+name: List All Scheduler Actions
+on:
+  workflow_dispatch:
+    inputs:
+      org:
+        description: Organization Regex
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.TOKEN }}
+      ORG: ${{ github.event.inputs.org }}
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          python list.py
